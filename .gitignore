@@ -1,1 +1,7 @@
 models/roberta_finetuned/
+venv/
+models/roberta_finetuned/
+__pycache__/
+*.pt
+*.safetensors
+*.zip
