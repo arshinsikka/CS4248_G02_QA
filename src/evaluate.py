@@ -1,33 +1,47 @@
-from transformers import AutoTokenizer, AutoModelForQuestionAnswering, pipeline
+#!/usr/bin/env python3
+from transformers import pipeline
+import argparse
 import json
+import torch
+from pathlib import Path
 
-# Paths
-model_path = "../models/roberta_finetuned"
-dev_file = "../data/dev-v1.1.json"
-predictions_file = "../predictions.json"
+# Defaults resolved relative to this file so it works regardless of CWD
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MODEL = str(ROOT / "models" / "roberta_base_full")
+DEFAULT_DEV = str(ROOT / "data" / "dev-v1.1.json")
+DEFAULT_OUT = str(ROOT / "predictions.json")
 
-# Load model
-print("🔄 Loading fine-tuned model...")
-qa_pipeline = pipeline("question-answering", model=model_path, tokenizer=model_path, device=-1)
-print("✅ Model loaded successfully!")
+def main():
+    parser = argparse.ArgumentParser(description="Run QA inference on SQuAD dev and write predictions.json")
+    parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL, help="Path or HF id of the fine-tuned model")
+    parser.add_argument("--dev_file", type=str, default=DEFAULT_DEV, help="Path to SQuAD dev-v1.1.json")
+    parser.add_argument("--out_file", type=str, default=DEFAULT_OUT, help="Where to write predictions.json")
+    args = parser.parse_args()
 
-# Load dev set
-print("📚 Loading SQuAD dev dataset...")
-with open(dev_file, "r") as f:
-    squad_dict = json.load(f)
+    print("🔄 Loading fine-tuned model...")
+    device_id = 0 if torch.cuda.is_available() else -1
+    qa = pipeline("question-answering", model=args.model_path, tokenizer=args.model_path, device=device_id)
+    print(f"✅ Model loaded (device={ 'cuda:0' if device_id == 0 else 'cpu' })")
 
-predictions = {}
-for article in squad_dict["data"]:  # test with 5 articles first
-    for paragraph in article["paragraphs"]:
-        context = paragraph["context"]
-        for qa in paragraph["qas"]:
-            question = qa["question"]
-            qid = qa["id"]
+    print("📚 Loading SQuAD dev dataset...")
+    with open(args.dev_file, "r") as f:
+        squad_dict = json.load(f)
 
-            result = qa_pipeline({"context": context, "question": question})
-            predictions[qid] = result["answer"]
+    predictions = {}
+    for article in squad_dict["data"]:
+        for paragraph in article["paragraphs"]:
+            context = paragraph["context"]
+            for qa_item in paragraph["qas"]:
+                question = qa_item["question"]
+                qid = qa_item["id"]
 
-print(f"✅ Generated {len(predictions)} predictions.")
-with open(predictions_file, "w") as f:
-    json.dump(predictions, f, indent=2)
-print(f"💾 Saved predictions to {predictions_file}")
+                result = qa({"context": context, "question": question})
+                predictions[qid] = result["answer"]
+
+    print(f"✅ Generated {len(predictions)} predictions.")
+    with open(args.out_file, "w") as f:
+        json.dump(predictions, f, indent=2)
+    print(f"💾 Saved predictions to {args.out_file}")
+
+if __name__ == "__main__":
+    main()

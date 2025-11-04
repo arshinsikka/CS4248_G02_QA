@@ -1,11 +1,18 @@
-from datasets import Dataset, DatasetDict, load_dataset
-from transformers import AutoTokenizer, AutoModelForQuestionAnswering, TrainingArguments, Trainer
+#!/usr/bin/env python3
+from datasets import Dataset, DatasetDict
+from transformers import (
+    AutoTokenizer,
+    AutoModelForQuestionAnswering,
+    TrainingArguments,
+    Trainer,
+)
+import argparse
 import json
-import evaluate
-import numpy as np
+import torch
+from pathlib import Path
 
-# 1️⃣ Load and flatten SQuAD files
-def load_and_flatten_squad(path):
+
+def load_and_flatten_squad(path: str) -> Dataset:
     with open(path, "r") as f:
         squad_dict = json.load(f)
 
@@ -24,26 +31,15 @@ def load_and_flatten_squad(path):
                 questions.append(question)
     return Dataset.from_dict({"context": contexts, "question": questions, "answers": answers})
 
-train_dataset = load_and_flatten_squad("../data/train-v1.1.json")
-validation_dataset = load_and_flatten_squad("../data/dev-v1.1.json")
-dataset = DatasetDict({"train": train_dataset, "validation": validation_dataset})
 
-print("✅ Loaded dataset successfully. Example:")
-print(dataset["train"][0])
+def build_tokenizer_and_model(model_name: str):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForQuestionAnswering.from_pretrained(model_name)
+    return tokenizer, model
 
-# 2️⃣ Initialize tokenizer and model **before** using them
-model_name = "roberta-base"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForQuestionAnswering.from_pretrained(model_name)
-import torch
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-model.to(device)
-print(f"✅ Using device: {device}")
 
-# 3️⃣ Preprocess function (uses tokenizer now safely)
-def preprocess(examples):
+def preprocess_function(examples, tokenizer):
     questions = [q.strip() for q in examples["question"]]
-
     inputs = tokenizer(
         questions,
         examples["context"],
@@ -68,7 +64,7 @@ def preprocess(examples):
         sample_index = sample_mapping[i]
         answer = examples["answers"][sample_index]
 
-        # If no answer, CLS token
+        # No answer -> predict CLS
         if answer["text"] == "" or answer["answer_start"] == 0:
             start_positions.append(cls_index)
             end_positions.append(cls_index)
@@ -77,25 +73,25 @@ def preprocess(examples):
         start_char = answer["answer_start"]
         end_char = start_char + len(answer["text"])
 
-        # Find start and end token indices in the context
+        # Find start/end token idx of the context (sequence_id == 1)
         token_start_index = 0
-        while sequence_ids[token_start_index] != 1:
+        while token_start_index < len(sequence_ids) and sequence_ids[token_start_index] != 1:
             token_start_index += 1
         token_end_index = len(input_ids) - 1
-        while sequence_ids[token_end_index] != 1:
+        while token_end_index >= 0 and sequence_ids[token_end_index] != 1:
             token_end_index -= 1
 
-        # If answer is not inside context
+        # If answer not fully inside the context span -> CLS
         if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
             start_positions.append(cls_index)
             end_positions.append(cls_index)
         else:
-            # Move token_start_index to the first token start >= start_char
+            # Move token_start_index to first token start >= start_char
             while token_start_index < len(offsets) and offsets[token_start_index][0] <= start_char:
                 token_start_index += 1
             start_positions.append(token_start_index - 1)
-            # Move token_end_index to the last token end <= end_char
-            while offsets[token_end_index][1] >= end_char:
+            # Move token_end_index to last token end <= end_char
+            while token_end_index >= 0 and offsets[token_end_index][1] >= end_char:
                 token_end_index -= 1
             end_positions.append(token_end_index + 1)
 
@@ -104,38 +100,88 @@ def preprocess(examples):
     return inputs
 
 
-tokenized_datasets = dataset.map(preprocess, batched=True, remove_columns=dataset["train"].column_names)
+def main():
+    parser = argparse.ArgumentParser(description="Fine-tune a QA model on SQuAD v1.1")
+    parser.add_argument("--model_name", type=str, default="roberta-base",
+                        help="HF model id (e.g., roberta-base, distilroberta-base)")
+    parser.add_argument("--train_path", type=str, default="../data/train-v1.1.json")
+    parser.add_argument("--dev_path", type=str, default="../data/dev-v1.1.json")
+    parser.add_argument("--output_dir", type=str, default="../models/roberta_finetuned")
+    parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--train_batch", type=int, default=8)
+    parser.add_argument("--eval_batch", type=int, default=8)
+    parser.add_argument("--learning_rate", type=float, default=3e-5)
+    parser.add_argument("--weight_decay", type=float, default=0.01)
+    parser.add_argument("--gradient_accumulation", type=int, default=1)
+    parser.add_argument("--max_train", type=int, default=2000,
+                        help="Max training examples (set -1 for full)")
+    parser.add_argument("--max_eval", type=int, default=500,
+                        help="Max eval examples (set -1 for full)")
+    args = parser.parse_args()
 
-# 4️⃣ Define training parameters
-training_args = TrainingArguments(
-    output_dir="../models/roberta_finetuned",
-    do_eval=True,
-    learning_rate=3e-5,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
-    num_train_epochs=2,
-    weight_decay=0.01,
-    logging_dir="./logs",
-    save_total_limit=2,
-)
+    root = Path(__file__).resolve().parents[1]
+    train_path = str((root / args.train_path).resolve()) if args.train_path.startswith("..") else args.train_path
+    dev_path = str((root / args.dev_path).resolve()) if args.dev_path.startswith("..") else args.dev_path
+    output_dir = str((root / args.output_dir).resolve()) if args.output_dir.startswith("..") else args.output_dir
 
-# 5️⃣ Define metrics
-metric = evaluate.load("squad")
+    print("✅ Loading SQuAD...")
+    train_ds = load_and_flatten_squad(train_path)
+    eval_ds = load_and_flatten_squad(dev_path)
+    dataset = DatasetDict({"train": train_ds, "validation": eval_ds})
+    print(f"Train size: {len(dataset['train'])}, Eval size: {len(dataset['validation'])}")
 
-def compute_metrics(p):
-    return metric.compute(predictions=p.predictions, references=p.label_ids)
+    tokenizer, model = build_tokenizer_and_model(args.model_name)
+    device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
+    model.to(device)
+    print(f"✅ Using device: {device}")
 
-# 6️⃣ Train model
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=tokenized_datasets["train"].select(range(2000)),  # small subset for testing
-    eval_dataset=tokenized_datasets["validation"].select(range(500)),
-    tokenizer=tokenizer,
-)
+    print("🔧 Tokenizing...")
+    tokenized = dataset.map(lambda ex: preprocess_function(ex, tokenizer),
+                            batched=True,
+                            remove_columns=dataset["train"].column_names)
 
-trainer.train()
+    # Subset for quick runs if requested
+    train_tokenized = tokenized["train"] if args.max_train == -1 else tokenized["train"].select(range(min(args.max_train, len(tokenized["train"]))))
+    eval_tokenized = tokenized["validation"] if args.max_eval == -1 else tokenized["validation"].select(range(min(args.max_eval, len(tokenized["validation"]))))
 
-# 7️⃣ Save the model
-trainer.save_model("../models/roberta_finetuned")
-print("✅ Fine-tuning complete! Model saved in models/roberta_finetuned/")
+    # Mixed precision: bf16 on Ampere/Hopper (A100/H100); fp16 otherwise if CUDA
+    supports_bf16 = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8
+    use_fp16 = torch.cuda.is_available() and not supports_bf16
+
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        do_eval=True,
+        # transformers 4.57.1 uses eval_strategy (not evaluation_strategy)
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        greater_is_better=False,
+        learning_rate=args.learning_rate,
+        per_device_train_batch_size=args.train_batch,
+        per_device_eval_batch_size=args.eval_batch,
+        gradient_accumulation_steps=args.gradient_accumulation,
+        num_train_epochs=args.epochs,
+        weight_decay=args.weight_decay,
+        logging_dir="./logs",
+        save_total_limit=3,
+        bf16=supports_bf16,
+        fp16=use_fp16,
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_tokenized,
+        eval_dataset=eval_tokenized,
+        tokenizer=tokenizer,
+    )
+
+    print("🚀 Training...")
+    trainer.train()
+    trainer.save_model(output_dir)
+    print(f"✅ Done. Model saved to: {output_dir}")
+
+
+if __name__ == "__main__":
+    main()

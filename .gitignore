@@ -1,6 +1,6 @@
 models/roberta_finetuned/
 venv/
-models/roberta_finetuned/
+models/
 __pycache__/
 *.pt
 *.safetensors
