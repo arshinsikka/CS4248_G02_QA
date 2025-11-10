@@ -7,9 +7,9 @@ from pathlib import Path
 
 # Defaults resolved relative to this file so it works regardless of CWD
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = str(ROOT / "models" / "roberta_base_full")
+DEFAULT_MODEL = str(ROOT / "models" / "roberta_base_d2e5_wd01_ep2_acc2")
 DEFAULT_DEV = str(ROOT / "data" / "dev-v1.1.json")
-DEFAULT_OUT = str(ROOT / "predictions_with_5.json")
+DEFAULT_OUT = str(ROOT / "predictions" / "candidates" / "predictions_with_5_acc2.json")
 
 
 def main():
@@ -62,6 +62,8 @@ def main():
                 count += 1
 
     print(f"✅ Generated top-{args.top_k} predictions for {count} questions.")
+    # Ensure output directory exists
+    Path(args.out_file).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as f:
         json.dump(predictions, f, indent=2)
     print(f"💾 Saved predictions to {args.out_file}")

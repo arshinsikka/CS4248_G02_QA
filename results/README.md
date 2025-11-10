@@ -5,7 +5,7 @@
 These files are needed to reproduce the main results:
 
 - `results_acc2_best_original.json` - Baseline RoBERTa results (EM=84.28, F1=90.93)
-- `results_top2_alpha05_gap005_bienc.json` - **Best bi-encoder reranked results** (EM=84.40, F1=91.04)
+- `best_results_top2_alpha05_gap005_bienc.json` - **Best bi-encoder reranked results** (EM=84.40, F1=91.04)
 - `results_top2_alpha05_gap005_cross.json` - Best cross-encoder reranked results
 - `results_top2_alpha05_gap02_bienc.json` - Alternative bi-encoder configuration
 - `results_top2_alpha05_gap02_cross.json` - Alternative cross-encoder configuration
