@@ -365,14 +365,4 @@ See `requirements.txt` for full dependency list. Key dependencies:
 - `numpy`
 - `datasets`
 
-## Citation
 
-If you use this code, please cite:
-```
-@misc{squad_reranking_2024,
-  title={Margin-Triggered Reranking for Extractive Question Answering on SQuAD v1.1},
-  author={Agarwal, Ishan and Agarwal, Samriddh and Goel, Arnav and Kakkar, Nihirra and Sikka, Arshin},
-  year={4},
-  institution={National University of Singapore, CS4248 Group G02}
-}
-```
