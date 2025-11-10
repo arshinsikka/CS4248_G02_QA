@@ -1,0 +1,12 @@
+# Core dependencies for fine-tuning and inference
+torch
+transformers
+datasets
+
+# Reranking dependencies
+sentence-transformers
+
+# Utilities
+numpy
+tqdm
+

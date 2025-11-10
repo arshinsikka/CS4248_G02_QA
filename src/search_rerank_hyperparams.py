@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Grid-search semantic reranking hyperparameters with live updates and summary."""
 import argparse
+import collections
 import json
 import math
 import time
@@ -72,39 +73,34 @@ def normalize_answer(text: str) -> str:
     return white_space_fix(remove_articles(remove_punc(lower(text))))
 
 
-def compute_exact_f1(golds: List[str], pred: str) -> Tuple[int, float]:
-    def get_tokens(s: str) -> List[str]:
-        return normalize_answer(s).split()
+def get_tokens(s: str) -> List[str]:
+    if not s:
+        return []
+    return normalize_answer(s).split()
 
-    pred_toks = get_tokens(pred)
+
+def compute_exact_f1(golds: List[str], pred: str) -> Tuple[int, float]:
+    """Match evaluate-v2.0.py logic exactly."""
     if not golds:
         golds = [""]
     max_exact = 0
     max_f1 = 0.0
     for gold in golds:
+        # Exact match (same as evaluate-v2.0.py)
+        exact = int(normalize_answer(gold) == normalize_answer(pred))
+        # F1 match (same as evaluate-v2.0.py)
         gold_toks = get_tokens(gold)
-        if not gold_toks and not pred_toks:
-            exact = 1
-            f1 = 1.0
-        elif not gold_toks or not pred_toks:
-            exact = 0
+        pred_toks = get_tokens(pred)
+        common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
+        num_same = sum(common.values())
+        if len(gold_toks) == 0 or len(pred_toks) == 0:
+            f1 = float(int(gold_toks == pred_toks))
+        elif num_same == 0:
             f1 = 0.0
         else:
-            exact = int(pred_toks == gold_toks)
-            common = {}
-            for tok in pred_toks:
-                common[tok] = common.get(tok, 0) + 1
-            overlap = 0
-            for tok in gold_toks:
-                if tok in common and common[tok] > 0:
-                    overlap += 1
-                    common[tok] -= 1
-            if overlap == 0:
-                f1 = 0.0
-            else:
-                precision = overlap / len(pred_toks)
-                recall = overlap / len(gold_toks)
-                f1 = (2 * precision * recall) / (precision + recall)
+            precision = 1.0 * num_same / len(pred_toks)
+            recall = 1.0 * num_same / len(gold_toks)
+            f1 = (2 * precision * recall) / (precision + recall)
         if exact > max_exact:
             max_exact = exact
         if f1 > max_f1:

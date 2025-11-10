@@ -102,6 +102,7 @@ def rerank_for_qid(
         cand_embs = bi_encoder.encode(cand_texts, convert_to_tensor=True, normalize_embeddings=True)
         sims = util.cos_sim(q_emb, cand_embs).cpu().numpy().reshape(-1)
         aux_scores = (sims + 1.0) / 2.0  # map to [0,1]
+        aux_scores = normalize_scores(aux_scores, mode=norm_mode)
     elif reranker_type == "cross_encoder":
         if cross_encoder is None:
             raise ValueError("cross_encoder model must be provided for cross_encoder reranking")
@@ -119,7 +120,7 @@ def rerank_for_qid(
                 exp_logits = np.exp(logits)
                 probs = exp_logits / np.clip(exp_logits.sum(axis=1, keepdims=True), 1e-12, None)
                 aux_scores = probs[:, -1]
-        aux_scores = normalize_scores(aux_scores, mode="minmax")
+        aux_scores = normalize_scores(aux_scores, mode=norm_mode)
     else:
         raise ValueError(f"Unknown reranker_type: {reranker_type}")
 

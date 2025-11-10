@@ -1,124 +1,378 @@
-## CS4248 G02 — Extractive Question Answering (SQuAD v1.1)
+# Margin-Triggered Reranking for Extractive Question Answering on SQuAD v1.1
 
-**[⬇️ Download best model checkpoint (acc2)](https://www.dropbox.com/scl/fi/2j2k8z8u7eh9z7qijtnq2/roberta_base_d2e5_wd01_ep2_acc2.zip?rlkey=aigdofz0snfq98hkqdm4o9y48&dl=1)**
+**CS4248 Group G02** - National University of Singapore
 
-This repo trains and evaluates an extractive QA model using RoBERTa on SQuAD v1.1. The typical flow is:
+## Overview
 
-1) Fine-tune RoBERTa using `src/fine_tune_roberta.py` → saves a model folder under `models/`
-2) Run inference with `src/evaluate.py` → writes `predictions/predictions_*.json`
-3) Score with the official SQuAD script `src/evaluate-v2.0.py` → writes `results/results_*.json`
+This project studies extractive question answering on SQuAD v1.1 using a RoBERTa-base model with a margin-triggered reranking layer. We fine-tune RoBERTa to achieve a strong baseline (84.28 EM, 90.93 F1), then introduce a lightweight bi-encoder reranker that only operates when the baseline model's confidence margin between top candidates is small. Our final system improves to **84.40 EM and 91.04 F1** while modifying only 55 out of 10,570 predictions (0.5%).
 
-Folders used:
-- `data/`: SQuAD data (`train-v1.1.json`, `dev-v1.1.json`)
-- `models/`: fine-tuned models (each run in its own subfolder)
-- `predictions/`: model predictions JSONs
-- `results/`: EM/F1 metrics from the SQuAD scorer
+### Key Contributions
 
-At the moment, the best checkpoint is `models/roberta_base_d2e5_wd01_ep2_acc2` ("acc2"). Later, we will not commit model weights (too large); the README will include a download link for the best model checkpoint.
+- **Margin-triggered reranking**: Only rerank when baseline score margin is small (threshold-based)
+- **Top-2 candidate focus**: Reranking operates on only the top two spans for robustness
+- **Bi-encoder reranker**: Uses sentence-transformers for efficient semantic similarity scoring
+- **Comprehensive analysis**: Detailed candidate distribution and margin analysis tools
 
-## Environment
+## Model Download
 
-Create a venv and install deps (CPU or GPU):
+**Fine-tuned RoBERTa-base model (4.5GB):** [Download from Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing)
+
+After downloading, extract to `models/roberta_base_d2e5_wd01_ep2_acc2/`. This is the baseline model used for all experiments.
+
+## Setup
+
+### Step 1: Install Python
+
+This project requires **Python 3.8 or higher**. If you don't have Python installed:
+
+**macOS:**
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-# CPU-only minimal:
-pip install transformers datasets evaluate
-# GPU (CUDA 12.1) + extras:
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-pip install transformers datasets evaluate accelerate
+# Using Homebrew (recommended)
+brew install python3
+
+# Or download from https://www.python.org/downloads/
 ```
 
-## Fine-tuning
-
-Script: `src/fine_tune_roberta.py`
-
-Key arguments:
-- `--model_name` (default: `roberta-base`): base model to fine-tune (e.g., `distilroberta-base`).
-- `--train_path`/`--dev_path`: paths to SQuAD files (default to `../data/...`, pass explicit `./data/...` if needed).
-- `--output_dir`: where the trained model will be saved (a folder under `models/`).
-- `--epochs`, `--train_batch`, `--eval_batch`, `--learning_rate`, `--weight_decay`.
-- `--gradient_accumulation`: simulate larger batch with limited VRAM.
-- `--max_train`, `--max_eval`: set `-1` to use full datasets; otherwise cap for quick runs (e.g., 2000/500).
-
-Examples:
+Verify installation:
 ```bash
-# Quick subset sanity check (CPU or GPU)
+python3 --version  # Should show Python 3.8 or higher
+```
+
+### Step 2: Create Virtual Environment
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+# Upgrade pip
+pip install --upgrade pip
+
+# Install project dependencies
+pip install -r requirements.txt
+```
+
+**For GPU support (CUDA 12.1):**
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
+
+## Project Structure
+
+```
+CS4248_G02_QA/
+├── data/                          # SQuAD v1.1 dataset
+│   ├── train-v1.1.json           # 87,599 training questions
+│   └── dev-v1.1.json             # 10,570 development questions
+├── models/                        # Fine-tuned models (download from Drive)
+├── predictions/                   # Prediction files (many experimental files)
+├── results/                      # Evaluation results (many experimental files)
+└── src/                          # Source code
+    ├── fine_tune_roberta.py      # Fine-tune RoBERTa on SQuAD
+    ├── evaluate.py                # Generate single best predictions
+    ├── evaluate_k_candidates.py   # Generate top-k candidate predictions
+    ├── evaluate-v2.0.py          # Official SQuAD evaluator
+    ├── rerank_squad_candidates.py # Global reranking (initial implementation)
+    ├── rerank_squad_candidates_threshold.py  # FINAL: Margin-triggered reranking
+    ├── search_rerank_hyperparams.py  # Hyperparameter grid search
+    ├── compare_rerank_stats.py   # Compare reranked vs original predictions
+    ├── calculate_candidate_stats.py  # Score difference statistics
+    ├── count_gold_candidate_positions.py  # Gold answer position analysis
+    └── evaluate_k_position_stats.py  # Position-based evaluation metrics
+```
+
+**Note:** The `predictions/` and `results/` folders contain many files generated during experimentation and hyperparameter search. Only a few key files are needed to reproduce the main results.
+
+## Source Code Files
+
+### Core Training & Evaluation
+
+#### `fine_tune_roberta.py`
+Fine-tunes RoBERTa-base on SQuAD v1.1. Supports configurable epochs, batch size, gradient accumulation, and learning rate.
+
+**Usage:**
+```bash
 python src/fine_tune_roberta.py \
   --model_name roberta-base \
-  --output_dir ./models/roberta_base_subset \
-  --epochs 2 --train_batch 8 --eval_batch 8 \
-  --max_train 2000 --max_eval 500 \
-  --train_path ./data/train-v1.1.json --dev_path ./data/dev-v1.1.json
-
-# Full-data training (GPU recommended)
-CUDA_VISIBLE_DEVICES=0 python src/fine_tune_roberta.py \
-  --model_name roberta-base \
-  --output_dir ./models/roberta_base_full \
-  --epochs 3 --train_batch 16 --eval_batch 16 \
-  --gradient_accumulation 1 \
-  --max_train -1 --max_eval -1 \
-  --train_path ./data/train-v1.1.json --dev_path ./data/dev-v1.1.json
+  --train_path data/train-v1.1.json \
+  --dev_path data/dev-v1.1.json \
+  --output_dir models/roberta_base_d2e5_wd01_ep2_acc2 \
+  --epochs 2 \
+  --train_batch 8 \
+  --gradient_accumulation 2 \
+  --learning_rate 3e-5 \
+  --weight_decay 0.01 \
+  --max_train -1 \
+  --max_eval -1
 ```
 
-Notes:
-- Mixed precision is enabled automatically on supported GPUs (bf16 on A100/H100, fp16 as fallback).
-- If you see CUDA OOM, reduce `--train_batch` and increase `--gradient_accumulation`.
+#### `evaluate.py`
+Generates single best predictions for each question using the fine-tuned model.
 
-## Inference (Generate predictions)
-
-Script: `src/evaluate.py`
-
-This script runs the fine-tuned model on the full SQuAD dev set and writes a predictions JSON mapping `qid -> answer`.
-
-Usage (defaults to `models/roberta_base_full` and writes `predictions/predictions.json` if you pass `--out_file`):
+**Usage:**
 ```bash
-CUDA_VISIBLE_DEVICES=0 python src/evaluate.py \
-  --model_path ./models/roberta_base_full \
-  --dev_file ./data/dev-v1.1.json \
-  --out_file ./predictions/predictions_roberta_base_full.json
+python src/evaluate.py \
+  --model_path models/roberta_base_d2e5_wd01_ep2_acc2 \
+  --dev_file data/dev-v1.1.json \
+  --out_file predictions/predictions_baseline.json
 ```
 
-If you omit `--out_file`, it writes to `predictions.json` in the repo root; you can move it afterwards:
+#### `evaluate_k_candidates.py`
+Generates top-k candidate predictions with scores and positions. Used to extract candidate lists for reranking. Output files should be saved to `predictions/candidates/` folder.
+
+**Usage:**
 ```bash
-mkdir -p predictions
-mv predictions.json predictions/predictions.json
+python src/evaluate_k_candidates.py \
+  --model_path models/roberta_base_d2e5_wd01_ep2_acc2 \
+  --dev_file data/dev-v1.1.json \
+  --out_file predictions/candidates/predictions_with_5_acc2.json \
+  --top_k 5
 ```
 
-## Scoring (EM/F1)
+#### `evaluate-v2.0.py`
+Official SQuAD evaluation script. Computes exact match (EM) and F1 scores.
 
-Script: `src/evaluate-v2.0.py` (official SQuAD evaluator; works for v1.1 predictions)
-
-Example:
+**Usage:**
 ```bash
 python src/evaluate-v2.0.py \
   data/dev-v1.1.json \
-  predictions/predictions_roberta_base_full.json \
-  --out-file results/roberta_base_full.json
+  predictions/predictions_baseline.json \
+  --out-file results/results_baseline.json
 ```
 
-The result file contains `exact`, `f1`, and counts. You can keep multiple results files for comparison.
+### Reranking Implementation
 
-## Best Model (current)
+#### `rerank_squad_candidates.py`
+Initial implementation of global reranking (reranks all candidates for all questions). This was our first approach before introducing margin-triggered reranking.
 
-- Current best: `models/roberta_base_d2e5_wd01_ep2_acc2` ("acc2"). Use it with `--model_path` in `src/evaluate.py` and score as shown above.
-- Large model folders are not committed. We will host the best checkpoint externally and put the link here.
+**Usage:**
+```bash
+python src/rerank_squad_candidates.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_5_acc2.json \
+  --out_file predictions/reranked/predictions_reranked_global.json \
+  --alpha 0.7 \
+  --reranker_type bi_encoder \
+  --model_name sentence-transformers/all-MiniLM-L6-v2
+```
 
-## External Model Download
+#### `rerank_squad_candidates_threshold.py` ⭐ **FINAL METHOD**
+Margin-triggered reranking: only reranks when the score margin between top-2 candidates is below a threshold. This is our final, best-performing approach. Output files should be saved to `predictions/reranked/` folder.
 
-We do not commit model weights to the repo due to size. A download link (Dropbox/Drive) for the best model will be added here:
+**Usage:**
+```bash
+python src/rerank_squad_candidates_threshold.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_2_acc2.json \
+  --out_file predictions/reranked/predictions_top2_alpha05_gap005_bienc.json \
+  --alpha 0.5 \
+  --min_gap 0.05 \
+  --normalize minmax \
+  --candidate_text_mode answer_is \
+  --cap_topk 2 \
+  --reranker_type bi_encoder \
+  --model_name sentence-transformers/all-MiniLM-L6-v2 \
+  --batch_size 32
+```
 
+**Key parameters:**
+- `--alpha`: Weight for baseline score vs. reranker score (0.5 = equal weight)
+- `--min_gap`: Margin threshold - only rerank if `score1 - score2 < min_gap`
+- `--reranker_type`: `bi_encoder` or `cross_encoder`
 
-**Model Download Links**
+### Analysis & Hyperparameter Search
 
-| Model Name                    | Download Link                                                                                       | Status (Usage)      |
-|-------------------------------|-----------------------------------------------------------------------------------------------------|---------------------|
-| Best ("acc2")                 | [Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing) | **Recommended**     |
-| Old (not recommended)         | [Google Drive (old model)](https://drive.google.com/file/d/1tv1_8kLF8VFFhWBLA4v7UYb3A8380RBJ/view?usp=sharing) | **DO NOT USE**      |
+#### `search_rerank_hyperparams.py`
+Grid search over hyperparameters (alpha, min_gap, top-k) with real-time progress updates and CSV output. Can search over multiple top-k candidate files simultaneously.
 
-**Note:**  
-- The "acc2" checkpoint is the official best checkpoint and should be used for all experiments.
-- The "old model" is retained for reference only and should **not be used in experiments or submissions**.
+**Usage:**
+```bash
+# Search over single top-k file
+python src/search_rerank_hyperparams.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest top2=predictions/candidates/predictions_with_2_acc2.json \
+  --alpha_start 0.3 --alpha_end 0.6 --alpha_step 0.1 \
+  --mingap_start 0.05 --mingap_end 0.25 --mingap_step 0.05 \
+  --reranker_type bi_encoder \
+  --model_name sentence-transformers/all-MiniLM-L6-v2 \
+  --results_csv results/hparam_search.csv \
+  --results_table results/hparam_search_table.txt
 
+# Search over multiple top-k files simultaneously
+python src/search_rerank_hyperparams.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest top2=predictions/candidates/predictions_with_2_acc2.json \
+  --nbest top3=predictions/candidates/predictions_with_3_acc2.json \
+  --nbest top5=predictions/candidates/predictions_with_5_acc2.json \
+  --alpha_start 0.2 --alpha_end 0.8 --alpha_step 0.1 \
+  --mingap_start 0.15 --mingap_end 0.35 --mingap_step 0.05 \
+  --reranker_type bi_encoder \
+  --model_name sentence-transformers/all-MiniLM-L6-v2 \
+  --results_csv results/hparam_search_all.csv
+```
 
+**Note:** You can specify multiple `--nbest` arguments to search over different top-k candidate files (top-2, top-3, top-5, etc.) in a single run. The script will evaluate all combinations of hyperparameters for each candidate file.
+
+#### `compare_rerank_stats.py`
+Compares reranked predictions against original baseline. Reports how many predictions changed and whether changes improved or hurt accuracy.
+
+**Usage:**
+```bash
+python src/compare_rerank_stats.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_2_acc2.json \
+  --reranked_file predictions/reranked/predictions_top2_alpha05_gap005_bienc.json \
+  --out_file results/rerank_change_stats.json
+```
+
+#### `calculate_candidate_stats.py`
+Computes statistics on score differences between candidates (mean, median, percentiles). Analyzes differences when gold is at rank 1 vs. rank 2.
+
+**Usage:**
+```bash
+python src/calculate_candidate_stats.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_5_acc2.json \
+  --out_file results/candidate_score_stats.json
+```
+
+#### `count_gold_candidate_positions.py`
+Counts how often the gold answer appears at each rank (1, 2, 3, 4, 5, or not in top-5).
+
+**Usage:**
+```bash
+python src/count_gold_candidate_positions.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_5_acc2.json \
+  --max_k 5 \
+  --out_file results/gold_position_counts.json
+```
+
+#### `evaluate_k_position_stats.py`
+Evaluates performance metrics broken down by candidate position (e.g., what if we always picked rank 2?).
+
+**Usage:**
+```bash
+python src/evaluate_k_position_stats.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_5_acc2.json \
+  --out_file results/results_k_position_stats.json
+```
+
+## Complete Workflow
+
+### Step 1: Download Model
+Download the fine-tuned model from [Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing) and extract to `models/roberta_base_d2e5_wd01_ep2_acc2/`.
+
+### Step 2: Generate Top-K Candidates
+```bash
+python src/evaluate_k_candidates.py \
+  --model_path models/roberta_base_d2e5_wd01_ep2_acc2 \
+  --dev_file data/dev-v1.1.json \
+  --out_file predictions/candidates/predictions_with_2_acc2.json \
+  --top_k 2
+```
+
+### Step 3: Apply Margin-Triggered Reranking
+```bash
+python src/rerank_squad_candidates_threshold.py \
+  --dev_file data/dev-v1.1.json \
+  --nbest_file predictions/candidates/predictions_with_2_acc2.json \
+  --out_file predictions/reranked/predictions_top2_alpha05_gap005_bienc.json \
+  --alpha 0.5 \
+  --min_gap 0.05 \
+  --normalize minmax \
+  --candidate_text_mode answer_is \
+  --cap_topk 2 \
+  --reranker_type bi_encoder \
+  --model_name sentence-transformers/all-MiniLM-L6-v2 \
+  --batch_size 32
+```
+
+### Step 4: Evaluate Results
+```bash
+python src/evaluate-v2.0.py \
+  data/dev-v1.1.json \
+  predictions/reranked/predictions_top2_alpha05_gap005_bienc.json \
+  --out-file results/results_top2_alpha05_gap005_bienc.json
+```
+
+## Results Summary
+
+| System | EM | F1 | Changed |
+|--------|----|----|---------|
+| Baseline (RoBERTa, 2 epochs, GA=2) | 84.28 | 90.93 | 0 |
+| Margin-triggered rerank (top-2, α=0.5, gap<0.05) | 84.40 | 91.04 | 55 |
+
+The reranker improves EM by 0.12 and F1 by 0.11 while modifying only 55 predictions (0.5% of the dataset). Among the 55 changes:
+- 14 examples become correct (orig incorrect → new correct)
+- 1 example becomes incorrect (orig correct → new incorrect)
+- 40 examples remain incorrect (both incorrect)
+
+## Key Findings
+
+1. **95% coverage**: Gold answer appears in top-5 candidates for 95.1% of questions
+2. **Margin correlation**: Small margins (score1 - score2) correlate with misranked questions
+3. **Top-2 is optimal**: Reranking top-2 candidates outperforms top-3 or top-5
+4. **Conservative reranking**: Margin-triggered approach is more robust than global reranking
+
+## External Code & Libraries
+
+- **Hugging Face Transformers**: Model fine-tuning and inference (`transformers` library)
+- **Sentence-Transformers**: Bi-encoder reranking (`sentence-transformers` library)
+- **Cross-Encoder models**: Cross-encoder reranking experiments (`sentence-transformers` with cross-encoder models)
+- **Official SQuAD evaluator**: `evaluate-v2.0.py` (from SQuAD official repository)
+
+All reranking logic, margin-triggered decision rules, hyperparameter search, and analysis tools are our own contributions.
+
+## File Progression
+
+Our implementation evolved as follows:
+
+1. **Baseline**: `evaluate.py` - Single best prediction
+2. **Candidate extraction**: `evaluate_k_candidates.py` - Top-k candidates with scores
+3. **Global reranking**: `rerank_squad_candidates.py` - Rerank all candidates (initial approach)
+4. **Margin-triggered reranking**: `rerank_squad_candidates_threshold.py` - **Final method** (only rerank when margin is small)
+
+The analysis scripts (`calculate_candidate_stats.py`, `count_gold_candidate_positions.py`, etc.) were developed to understand candidate distributions and guide the reranking design.
+
+## Notes on Experimental Files
+
+The `predictions/` and `results/` folders contain many files generated during:
+- Hyperparameter grid searches (multiple alpha/gap combinations)
+- Different reranker types (bi-encoder vs. cross-encoder)
+- Different top-k settings (top-2, top-3, top-5)
+- Comparison experiments
+
+Only a few key files are needed to reproduce the main results. The experimental files are retained for completeness and analysis.
+
+## Requirements
+
+See `requirements.txt` for full dependency list. Key dependencies:
+- `torch` (PyTorch)
+- `transformers` (Hugging Face)
+- `sentence-transformers`
+- `numpy`
+- `datasets`
+
+## Citation
+
+If you use this code, please cite:
+```
+@misc{squad_reranking_2024,
+  title={Margin-Triggered Reranking for Extractive Question Answering on SQuAD v1.1},
+  author={Agarwal, Ishan and Agarwal, Samriddh and Goel, Arnav and Kakkar, Nihirra and Sikka, Arshin},
+  year={4},
+  institution={National University of Singapore, CS4248 Group G02}
+}
+```

@@ -67,6 +67,7 @@ def main():
             outputs[qid] = ""
             insufficient_candidates += 1
         else:
+            # Check gap AFTER dedup/filter (matching search script behavior)
             should_rerank = False
             if len(cands) >= 2:
                 score1 = float(cands[0].get("score", 0.0))
