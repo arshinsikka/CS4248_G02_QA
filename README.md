@@ -17,7 +17,9 @@ This project studies extractive question answering on SQuAD v1.1 using a RoBERTa
 
 **Fine-tuned RoBERTa-base model (4.5GB):** [Download from Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing)
 
-After downloading, extract to `models/roberta_base_d2e5_wd01_ep2_acc2/`. This is the baseline model used for all experiments.
+**Automatic Download:** The `run_complete_workflow.py` script will automatically download and extract the model if it's not found. No manual download needed when using the workflow script!
+
+**Manual Download:** If you prefer to download manually, extract the zip file to `models/roberta_base_d2e5_wd01_ep2_acc2/`. This is the baseline model used for all experiments.
 
 ## Setup
 
@@ -78,6 +80,7 @@ CS4248_G02_QA/
 ├── predictions/                   # Prediction files (many experimental files)
 ├── results/                      # Evaluation results (many experimental files)
 └── src/                          # Source code
+    ├── run_complete_workflow.py   # ⚡ Automated complete workflow script
     ├── fine_tune_roberta.py      # Fine-tune RoBERTa on SQuAD
     ├── evaluate.py                # Generate single best predictions
     ├── evaluate_k_candidates.py   # Generate top-k candidate predictions
@@ -94,6 +97,31 @@ CS4248_G02_QA/
 **Note:** The `predictions/` and `results/` folders contain many files generated during experimentation and hyperparameter search. Only a few key files are needed to reproduce the main results.
 
 ## Source Code Files
+
+### Complete Workflow
+
+#### `run_complete_workflow.py` ⚡ **RECOMMENDED**
+Automated script that runs the complete pipeline: candidate generation → reranking → evaluation. Uses best default parameters from hyperparameter search.
+
+**Usage:**
+```bash
+# Use best defaults (top_k=2, alpha=0.5, min_gap=0.05)
+python src/run_complete_workflow.py
+
+# Custom parameters
+python src/run_complete_workflow.py --top_k 3 --alpha 0.6 --min_gap 0.1
+
+# Skip candidate generation (use existing file)
+python src/run_complete_workflow.py --skip_candidates --nbest_file predictions/candidates/predictions_with_2_acc2.json
+```
+
+**Key features:**
+- **Automatic model download**: Downloads the fine-tuned model from Google Drive if not found (4.5GB)
+- Automatically generates top-k candidates
+- Applies margin-triggered reranking with configurable parameters
+- Evaluates results and displays final metrics
+- Creates necessary output directories
+- Uses best default parameters from hyperparameter search
 
 ### Core Training & Evaluation
 
@@ -271,7 +299,47 @@ python src/evaluate_k_position_stats.py \
 
 ## Complete Workflow
 
-### Step 1: Download Model
+### Quick Start: Automated Workflow Script ⚡
+
+The easiest way to run the complete pipeline is using the automated workflow script:
+
+```bash
+# Use best default parameters (top_k=2, alpha=0.5, min_gap=0.05)
+python src/run_complete_workflow.py
+
+# Custom parameters
+python src/run_complete_workflow.py --top_k 3 --alpha 0.6 --min_gap 0.1
+
+# Skip candidate generation (use existing file)
+python src/run_complete_workflow.py --skip_candidates --nbest_file predictions/candidates/predictions_with_2_acc2.json
+
+# Use cross-encoder instead of bi-encoder
+python src/run_complete_workflow.py --reranker_type cross_encoder
+```
+
+**Default parameters (best from hyperparameter search):**
+- `top_k`: 2
+- `alpha`: 0.5
+- `min_gap`: 0.05
+- `reranker_type`: bi_encoder
+
+The script automatically:
+1. **Downloads the model** (if not found) from Google Drive (4.5GB)
+2. Generates top-k candidate predictions
+3. Applies margin-triggered reranking
+4. Evaluates results and displays metrics
+
+**Note:** On first run, the script will download the model (~4.5GB). This may take several minutes depending on your internet connection. The model is saved to `models/roberta_base_d2e5_wd01_ep2_acc2/` and won't be downloaded again on subsequent runs.
+
+See `python src/run_complete_workflow.py --help` for all options.
+
+### Manual Step-by-Step Workflow
+
+If you prefer to run each step manually (or if you want more control):
+
+### Step 1: Download Model (Optional)
+The automated workflow script will download the model automatically. If you prefer to download manually:
+
 Download the fine-tuned model from [Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing) and extract to `models/roberta_base_d2e5_wd01_ep2_acc2/`.
 
 ### Step 2: Generate Top-K Candidates
