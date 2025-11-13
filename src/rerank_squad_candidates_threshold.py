@@ -17,8 +17,8 @@ from rerank_squad_candidates import (
 def main():
     ap = argparse.ArgumentParser(description="Thresholded semantic reranking for SQuAD n-best candidates")
     ap.add_argument("--dev_file", type=str, required=True, help="Path to dev-v1.1.json")
-    ap.add_argument("--nbest_file", type=str, required=True, help="Path to predictions_with_5.json (qid -> list of candidates)")
-    ap.add_argument("--out_file", type=str, default="predictions_threshold_reranked.json", help="Output predictions file (qid -> best span text)")
+    ap.add_argument("--nbest_file", type=str, required=True, help="Path to predictions_with_top_k.json (qid -> list of candidates)")
+    ap.add_argument("--out_file", type=str, default="predictions_with_top_k_reranked.json", help="Output predictions file (qid -> best span text)")
     ap.add_argument("--alpha", type=float, default=0.75, help="Fusion weight for baseline score (0..1)")
     ap.add_argument("--normalize", type=str, default="minmax", choices=["minmax", "softmax", "none"], help="Per-question normalization for baseline scores")
     ap.add_argument("--candidate_text_mode", type=str, default="answer_is", choices=["answer_is", "raw"], help="How to embed candidate spans")
