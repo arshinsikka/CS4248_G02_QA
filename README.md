@@ -15,7 +15,7 @@ This project studies extractive question answering on SQuAD v1.1 using a RoBERTa
 
 ## Model Download
 
-**Fine-tuned RoBERTa-base model (4.5GB):** [Download from Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing)
+**Fine-tuned RoBERTa-base model (3.5GB):** [Download from Google Drive](https://drive.google.com/file/d/1XNCI0GWPADil13jA2u0uug43mSDTsnA6/view?usp=sharing)
 
 **Automatic Download:** The `run_complete_workflow.py` script will automatically download and extract the model if it's not found. No manual download needed when using the workflow script!
 
@@ -89,7 +89,7 @@ python src/run_complete_workflow.py --skip_candidates --nbest_file predictions/c
 ```
 
 **Key features:**
-- **Automatic model download**: Downloads the fine-tuned model from Google Drive if not found (4.5GB)
+- **Automatic model download**: Downloads the fine-tuned model from Google Drive if not found (3.5GB)
 - Automatically generates top-k candidates
 - Applies margin-triggered reranking with configurable parameters
 - Evaluates results and displays final metrics
@@ -297,12 +297,12 @@ python src/run_complete_workflow.py --reranker_type cross_encoder
 - `reranker_type`: bi_encoder
 
 The script automatically:
-1. **Downloads the model** (if not found) from Google Drive (4.5GB)
+1. **Downloads the model** (if not found) from Google Drive (3.5GB)
 2. Generates top-k candidate predictions
 3. Applies margin-triggered reranking
 4. Evaluates results and displays metrics
 
-**Note:** On first run, the script will download the model (~4.5GB). This may take several minutes depending on your internet connection. The model is saved to `models/roberta_base_d2e5_wd01_ep2_acc2/` and won't be downloaded again on subsequent runs.
+**Note:** On first run, the script will download the model (~3.5GB). This may take several minutes depending on your internet connection. The model is saved to `models/roberta_base_d2e5_wd01_ep2_acc2/` and won't be downloaded again on subsequent runs.
 
 See `python src/run_complete_workflow.py --help` for all options.
 
