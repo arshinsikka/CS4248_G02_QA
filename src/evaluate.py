@@ -5,7 +5,6 @@ import json
 import torch
 from pathlib import Path
 
-# Defaults resolved relative to this file so it works regardless of CWD
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = str(ROOT / "models" / "roberta_base_d2e5_wd01_ep2_acc2")
 DEFAULT_DEV = str(ROOT / "data" / "dev-v1.1.json")
@@ -18,12 +17,12 @@ def main():
     parser.add_argument("--out_file", type=str, default=DEFAULT_OUT, help="Where to write predictions.json")
     args = parser.parse_args()
 
-    print("🔄 Loading fine-tuned model...")
+    print("Loading model...")
     device_id = 0 if torch.cuda.is_available() else -1
     qa = pipeline("question-answering", model=args.model_path, tokenizer=args.model_path, device=device_id)
-    print(f"✅ Model loaded (device={ 'cuda:0' if device_id == 0 else 'cpu' })")
+    print(f"Model loaded (device={'cuda:0' if device_id == 0 else 'cpu'})")
 
-    print("📚 Loading SQuAD dev dataset...")
+    print("Loading SQuAD dev dataset...")
     with open(args.dev_file, "r") as f:
         squad_dict = json.load(f)
 
@@ -38,12 +37,11 @@ def main():
                 result = qa({"context": context, "question": question})
                 predictions[qid] = result["answer"]
 
-    print(f"✅ Generated {len(predictions)} predictions.")
-    # Ensure output directory exists
+    print(f"Generated {len(predictions)} predictions.")
     Path(args.out_file).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as f:
         json.dump(predictions, f, indent=2)
-    print(f"💾 Saved predictions to {args.out_file}")
+    print(f"Saved predictions to {args.out_file}")
 
 if __name__ == "__main__":
     main()

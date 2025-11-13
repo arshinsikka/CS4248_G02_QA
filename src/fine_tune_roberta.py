@@ -64,7 +64,6 @@ def preprocess_function(examples, tokenizer):
         sample_index = sample_mapping[i]
         answer = examples["answers"][sample_index]
 
-        # No answer -> predict CLS
         if answer["text"] == "" or answer["answer_start"] == 0:
             start_positions.append(cls_index)
             end_positions.append(cls_index)
@@ -73,7 +72,6 @@ def preprocess_function(examples, tokenizer):
         start_char = answer["answer_start"]
         end_char = start_char + len(answer["text"])
 
-        # Find start/end token idx of the context (sequence_id == 1)
         token_start_index = 0
         while token_start_index < len(sequence_ids) and sequence_ids[token_start_index] != 1:
             token_start_index += 1
@@ -81,16 +79,13 @@ def preprocess_function(examples, tokenizer):
         while token_end_index >= 0 and sequence_ids[token_end_index] != 1:
             token_end_index -= 1
 
-        # If answer not fully inside the context span -> CLS
         if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
             start_positions.append(cls_index)
             end_positions.append(cls_index)
         else:
-            # Move token_start_index to first token start >= start_char
             while token_start_index < len(offsets) and offsets[token_start_index][0] <= start_char:
                 token_start_index += 1
             start_positions.append(token_start_index - 1)
-            # Move token_end_index to last token end <= end_char
             while token_end_index >= 0 and offsets[token_end_index][1] >= end_char:
                 token_end_index -= 1
             end_positions.append(token_end_index + 1)
@@ -124,7 +119,7 @@ def main():
     dev_path = str((root / args.dev_path).resolve()) if args.dev_path.startswith("..") else args.dev_path
     output_dir = str((root / args.output_dir).resolve()) if args.output_dir.startswith("..") else args.output_dir
 
-    print("✅ Loading SQuAD...")
+    print("Loading SQuAD dataset...")
     train_ds = load_and_flatten_squad(train_path)
     eval_ds = load_and_flatten_squad(dev_path)
     dataset = DatasetDict({"train": train_ds, "validation": eval_ds})
@@ -133,25 +128,22 @@ def main():
     tokenizer, model = build_tokenizer_and_model(args.model_name)
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
     model.to(device)
-    print(f"✅ Using device: {device}")
+    print(f"Using device: {device}")
 
-    print("🔧 Tokenizing...")
+    print("Tokenizing dataset...")
     tokenized = dataset.map(lambda ex: preprocess_function(ex, tokenizer),
                             batched=True,
                             remove_columns=dataset["train"].column_names)
 
-    # Subset for quick runs if requested
     train_tokenized = tokenized["train"] if args.max_train == -1 else tokenized["train"].select(range(min(args.max_train, len(tokenized["train"]))))
     eval_tokenized = tokenized["validation"] if args.max_eval == -1 else tokenized["validation"].select(range(min(args.max_eval, len(tokenized["validation"]))))
 
-    # Mixed precision: bf16 on Ampere/Hopper (A100/H100); fp16 otherwise if CUDA
     supports_bf16 = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8
     use_fp16 = torch.cuda.is_available() and not supports_bf16
 
     training_args = TrainingArguments(
         output_dir=output_dir,
         do_eval=True,
-        # transformers 4.57.1 uses eval_strategy (not evaluation_strategy)
         eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
@@ -177,10 +169,10 @@ def main():
         tokenizer=tokenizer,
     )
 
-    print("🚀 Training...")
+    print("Starting training...")
     trainer.train()
     trainer.save_model(output_dir)
-    print(f"✅ Done. Model saved to: {output_dir}")
+    print(f"Training complete. Model saved to: {output_dir}")
 
 
 if __name__ == "__main__":

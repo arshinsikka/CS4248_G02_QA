@@ -18,9 +18,16 @@ These files are needed to reproduce the main results:
 
 ## Hyperparameter Search Results
 
-- `hparam_search.csv` - Main hyperparameter grid search results (all configurations, CSV format)
-- `hparam_search_02_biencoder.txt` - Bi-encoder search results (text format)
-- `hyperparameter_search.txt` - Cross-encoder search results (text format)
+### Comprehensive Search (Top 2, 3, 5 Candidates)
+
+- `hparam_search_top2_3_5_biencoder.csv` - Bi-encoder hyperparameter search results for top 2, 3, and 5 candidates (CSV format)
+- `hparam_search_top2_3_5_biencoder.txt` - Bi-encoder search results summary table (text format)
+- `hparam_search_top2_3_5_biencoder_output.txt` - Full bi-encoder search output with live progress logs
+- `hparam_search_top2_3_5_cross.csv` - Cross-encoder hyperparameter search results for top 2, 3, and 5 candidates (CSV format)
+- `hparam_search_top2_3_5_cross.txt` - Cross-encoder search results summary table (text format)
+- `hparam_search_top2_3_5_cross_output.txt` - Full cross-encoder search output with live progress logs
+
+These files contain grid search results across alpha (0.3-0.6) and min_gap (0.05-0.25) parameters for all three candidate set sizes.
 
 ## Comparison Statistics
 
@@ -33,7 +40,6 @@ The `experimental/` subfolder contains intermediate results from various experim
 - Different gradient accumulation settings (GA=4)
 - Early reranking attempts (global reranking, different thresholds)
 - Cross-encoder experiments that didn't improve results
-- Intermediate hyperparameter search outputs
 
 These are kept for completeness but **not needed to reproduce the main results**.
 

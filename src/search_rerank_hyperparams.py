@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Grid-search semantic reranking hyperparameters with live updates and summary."""
 import argparse
 import collections
 import json
@@ -80,15 +79,12 @@ def get_tokens(s: str) -> List[str]:
 
 
 def compute_exact_f1(golds: List[str], pred: str) -> Tuple[int, float]:
-    """Match evaluate-v2.0.py logic exactly."""
     if not golds:
         golds = [""]
     max_exact = 0
     max_f1 = 0.0
     for gold in golds:
-        # Exact match (same as evaluate-v2.0.py)
         exact = int(normalize_answer(gold) == normalize_answer(pred))
-        # F1 match (same as evaluate-v2.0.py)
         gold_toks = get_tokens(gold)
         pred_toks = get_tokens(pred)
         common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
@@ -297,9 +293,9 @@ def main():
     if not dev_file.exists():
         raise FileNotFoundError(dev_file)
 
-    print("📚 Loading dev dataset...", flush=True)
+    print("Loading dev dataset...", flush=True)
     qid_to_question, qid_to_answers = load_dev_dataset(dev_file)
-    print(f"  → questions: {len(qid_to_question)}", flush=True)
+    print(f"Loaded {len(qid_to_question)} questions", flush=True)
 
     alphas = []
     v = args.alpha_start
@@ -312,14 +308,14 @@ def main():
         min_gaps.append(round(v, 6))
         v += args.mingap_step
 
-    print(f"🔁 Grid: {len(alphas)} alpha values × {len(min_gaps)} min_gap values", flush=True)
+    print(f"Grid search: {len(alphas)} alpha values × {len(min_gaps)} min_gap values", flush=True)
 
     if args.reranker_type == "bi_encoder":
-        print(f"🧠 Loading bi-encoder model: {args.model_name}", flush=True)
+        print(f"Loading bi-encoder model: {args.model_name}", flush=True)
         bi_model = SentenceTransformer(args.model_name)
         cross_model = None
     else:
-        print(f"🧠 Loading cross-encoder model: {args.cross_model_name}", flush=True)
+        print(f"Loading cross-encoder model: {args.cross_model_name}", flush=True)
         bi_model = None
         cross_model = CrossEncoder(args.cross_model_name)
 
@@ -344,7 +340,7 @@ def main():
             bi_model=bi_model,
             cross_model=cross_model,
         )
-        print(f"  → prepared {len(entries)} entries", flush=True)
+        print(f"Prepared {len(entries)} entries", flush=True)
 
         for alpha in alphas:
             for min_gap in min_gaps:
@@ -393,7 +389,7 @@ def main():
                     f"{row['label']:<12}{row['alpha']:>7.2f}{row['min_gap']:>8.2f}"
                     f"{row['exact']:>10.2f}{row['f1']:>10.2f}{counts['changed']:>10d}\n"
                 )
-        print(f"\n💾 Plain table written to {table_path}")
+        print(f"\nTable written to {table_path}")
 
     print("\n=== SUMMARY TABLE (sorted by F1 desc) ===")
     print(header)
@@ -439,7 +435,7 @@ def main():
                     counts["changed_orig_correct_new_correct"],
                     row["time_sec"],
                 ])
-        print(f"\n💾 Results written to {csv_path}")
+        print(f"\nResults written to {csv_path}")
 
 
 if __name__ == "__main__":
