@@ -51,7 +51,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # On Windows:
-venv\Scripts\activate
+venv\Scripts\activate.bat
 ```
 
 ### Step 3: Install Dependencies
@@ -69,38 +69,11 @@ pip install -r requirements.txt
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
-## Project Structure
-
-```
-CS4248_G02_QA/
-├── data/                          # SQuAD v1.1 dataset
-│   ├── train-v1.1.json           # 87,599 training questions
-│   └── dev-v1.1.json             # 10,570 development questions
-├── models/                        # Fine-tuned models (download from Drive)
-├── predictions/                   # Prediction files (many experimental files)
-├── results/                      # Evaluation results (many experimental files)
-└── src/                          # Source code
-    ├── run_complete_workflow.py   # ⚡ Automated complete workflow script
-    ├── fine_tune_roberta.py      # Fine-tune RoBERTa on SQuAD
-    ├── evaluate.py                # Generate single best predictions
-    ├── evaluate_k_candidates.py   # Generate top-k candidate predictions
-    ├── evaluate-v2.0.py          # Official SQuAD evaluator
-    ├── rerank_squad_candidates.py # Global reranking (initial implementation)
-    ├── rerank_squad_candidates_threshold.py  # FINAL: Margin-triggered reranking
-    ├── search_rerank_hyperparams.py  # Hyperparameter grid search
-    ├── compare_rerank_stats.py   # Compare reranked vs original predictions
-    ├── calculate_candidate_stats.py  # Score difference statistics
-    ├── count_gold_candidate_positions.py  # Gold answer position analysis
-    └── evaluate_k_position_stats.py  # Position-based evaluation metrics
-```
-
-**Note:** The `predictions/` and `results/` folders contain many files generated during experimentation and hyperparameter search. Only a few key files are needed to reproduce the main results.
-
 ## Source Code Files
 
 ### Complete Workflow
 
-#### `run_complete_workflow.py` ⚡ **RECOMMENDED**
+#### `run_complete_workflow.py` **RECOMMENDED**
 Automated script that runs the complete pipeline: candidate generation → reranking → evaluation. Uses best default parameters from hyperparameter search.
 
 **Usage:**
