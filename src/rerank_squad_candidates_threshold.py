@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rerank SQuAD candidates only when the top-two baseline scores are close."""
+# Rerank SQuAD candidates only when the top-two baseline scores are close
 import argparse
 import json
 from typing import Dict
@@ -31,22 +31,22 @@ def main():
     ap.add_argument("--min_gap", type=float, default=0.35, help="Only rerank when (score1 - score2) < min_gap")
     args = ap.parse_args()
 
-    print("📚 Loading dev questions...")
+    print("Loading dev questions...")
     qid2q = load_dev_qid_to_question(args.dev_file)
-    print(f"  → Loaded {len(qid2q)} questions")
+    print(f"Loaded {len(qid2q)} questions")
 
-    print("📄 Loading n-best candidates...")
+    print("Loading n-best candidates...")
     qid2cands_all = load_nbest(args.nbest_file)
-    print(f"  → Loaded candidates for {len(qid2cands_all)} qids")
+    print(f"Loaded candidates for {len(qid2cands_all)} qids")
 
     qids = [qid for qid in qid2cands_all.keys() if qid in qid2q]
 
     if args.reranker_type == "bi_encoder":
-        print("🧠 Loading bi-encoder model:", args.model_name)
+        print("Loading bi-encoder model:", args.model_name)
         bi_model = SentenceTransformer(args.model_name)
         cross_model = None
     else:
-        print("🧠 Loading cross-encoder model:", args.cross_model_name)
+        print("Loading cross-encoder model:", args.cross_model_name)
         bi_model = None
         cross_model = CrossEncoder(args.cross_model_name)
 
@@ -99,18 +99,18 @@ def main():
 
         total_considered += len(cands)
         if idx % 1000 == 0:
-            print(f" … processed {idx}/{len(qids)} qids")
+            print(f"Processed {idx}/{len(qids)} qids")
 
     with open(args.out_file, "w", encoding="utf-8") as f:
         json.dump(outputs, f, ensure_ascii=False)
 
-    print("✅ Done")
-    print(f" QIDs processed: {len(qids)}")
-    print(f" Avg candidates considered per QID: {total_considered / max(len(qids),1):.2f}")
-    print(f" QIDs reranked: {reranked}")
-    print(f" QIDs skipped due to confident gap: {skipped_due_gap}")
-    print(f" QIDs without >=2 candidates: {insufficient_candidates}")
-    print(f" Wrote: {args.out_file}")
+    print("Done")
+    print(f"QIDs processed: {len(qids)}")
+    print(f"Avg candidates considered per QID: {total_considered / max(len(qids),1):.2f}")
+    print(f"QIDs reranked: {reranked}")
+    print(f"QIDs skipped due to confident gap: {skipped_due_gap}")
+    print(f"QIDs without >=2 candidates: {insufficient_candidates}")
+    print(f"Wrote: {args.out_file}")
 
 
 if __name__ == "__main__":

@@ -51,6 +51,7 @@ def load_dev_dataset(dev_path: Path):
 
 
 def normalize_answer(text: str) -> str:
+    # normalize answer text for comparison
     import re
     import string
 
@@ -211,7 +212,7 @@ def build_entries(
         })
 
     if skipped_missing_question:
-        print(f"[{label}] Skipped {skipped_missing_question} qids missing question/answers")
+        print(f"[{label}] Skipped {skipped_missing_question} qids (missing question/answers)")
     return entries
 
 
@@ -293,9 +294,9 @@ def main():
     if not dev_file.exists():
         raise FileNotFoundError(dev_file)
 
-    print("Loading dev dataset...", flush=True)
+    print("Loading dev dataset...")
     qid_to_question, qid_to_answers = load_dev_dataset(dev_file)
-    print(f"Loaded {len(qid_to_question)} questions", flush=True)
+    print(f"Loaded {len(qid_to_question)} questions")
 
     alphas = []
     v = args.alpha_start
@@ -308,14 +309,14 @@ def main():
         min_gaps.append(round(v, 6))
         v += args.mingap_step
 
-    print(f"Grid search: {len(alphas)} alpha values × {len(min_gaps)} min_gap values", flush=True)
+    print(f"Grid search: {len(alphas)} alpha values × {len(min_gaps)} min_gap values")
 
     if args.reranker_type == "bi_encoder":
-        print(f"Loading bi-encoder model: {args.model_name}", flush=True)
+        print(f"Loading bi-encoder model: {args.model_name}")
         bi_model = SentenceTransformer(args.model_name)
         cross_model = None
     else:
-        print(f"Loading cross-encoder model: {args.cross_model_name}", flush=True)
+        print(f"Loading cross-encoder model: {args.cross_model_name}")
         bi_model = None
         cross_model = CrossEncoder(args.cross_model_name)
 
@@ -325,7 +326,7 @@ def main():
     for label, path in nbest_map.items():
         if not path.exists():
             raise FileNotFoundError(path)
-        print(f"\n=== Preparing candidates for {label} ({path}) ===", flush=True)
+        print(f"\n=== Preparing candidates for {label} ({path}) ===")
         entries = build_entries(
             label=label,
             nbest_path=path,
@@ -340,7 +341,7 @@ def main():
             bi_model=bi_model,
             cross_model=cross_model,
         )
-        print(f"Prepared {len(entries)} entries", flush=True)
+        print(f"Prepared {len(entries)} entries")
 
         for alpha in alphas:
             for min_gap in min_gaps:
@@ -372,8 +373,7 @@ def main():
                     f"[{label}] α={alpha:.2f}, gap<{min_gap:.2f} → exact={exact:6.2f} f1={f1:6.2f} "
                     f"changed={counts['changed']:5d} (+{counts['changed_orig_incorrect_new_correct']}/-{counts['changed_orig_correct_new_incorrect']}) "
                     f"best_f1={best_overall['f1']:6.2f} ({best_overall['label']}, α={best_overall['alpha']:.2f}, gap<{best_overall['min_gap']:.2f}) "
-                    f"[{duration:.1f}s]",
-                    flush=True,
+                    f"[{duration:.1f}s]"
                 )
 
     header = f"{'Label':<12}{'Alpha':>7}{'MinGap':>8}{'Exact':>10}{'F1':>10}{'Changed':>10}"

@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def normalize_answer(s: str) -> str:
-    """Lower text and remove punctuation, articles and extra whitespace."""
+    # Lower text and remove punctuation, articles and extra whitespace
     def remove_articles(text):
         regex = re.compile(r"\b(a|an|the)\b", re.UNICODE)
         return re.sub(regex, " ", text)
@@ -56,13 +56,13 @@ def main():
     parser.add_argument("--out_file", type=str, default=None, help="Optional path to write JSON summary")
     args = parser.parse_args()
 
-    print("📚 Loading gold answers...")
+    print("Loading gold answers...")
     qid_to_gold = load_gold_answers(args.dev_file)
-    print(f"  → Loaded {len(qid_to_gold)} questions")
+    print(f"Loaded {len(qid_to_gold)} questions")
 
-    print("📄 Loading candidate lists...")
+    print("Loading candidate lists...")
     qid_to_candidates = load_candidates(args.nbest_file)
-    print(f"  → Loaded candidates for {len(qid_to_candidates)} questions")
+    print(f"Loaded candidates for {len(qid_to_candidates)} questions")
 
     max_k = max(1, args.max_k)
     counts = {str(i): 0 for i in range(1, max_k + 1)}
@@ -109,7 +109,7 @@ def main():
         }
         with open(args.out_file, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
-        print(f"\n💾 Results saved to: {args.out_file}")
+        print(f"\nResults saved to: {args.out_file}")
 
 
 if __name__ == "__main__":

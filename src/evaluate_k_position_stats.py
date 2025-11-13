@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 def normalize_answer(s: str) -> str:
+    # normalize answer text
     def remove_articles(text: str) -> str:
         return re.sub(r"\b(a|an|the)\b", " ", text)
 
@@ -51,7 +52,7 @@ def compute_f1(a_gold: str, a_pred: str) -> float:
 def load_gold_answers(dev_path: str) -> dict[str, list[str]]:
     with open(dev_path, "r") as f:
         data = json.load(f)
-    qid_to_answers: dict[str, list[str]] = {}
+    qid_to_answers = {}
     for article in data["data"]:
         for paragraph in article["paragraphs"]:
             for qa in paragraph["qas"]:
@@ -64,6 +65,7 @@ def load_gold_answers(dev_path: str) -> dict[str, list[str]]:
 
 
 def determine_k(predictions: dict) -> int:
+    # figure out k from first list we find
     for v in predictions.values():
         if isinstance(v, list):
             return len(v)
@@ -79,16 +81,16 @@ def compute_position_stats(
 
     # Per-position EM counts
     pos_em_counts = [0] * k
-    # Exclusive per-position EM counts (first correct at position i)
+    # Exclusive per-position EM (first correct at position i)
     exclusive_em_counts = [0] * k
 
     # Cumulative EM: any of top i is exact
     cum_em_counts = [0] * k
 
-    # Cumulative best-F1: average over questions of max F1 among top i
+    # Cumulative best-F1: avg over questions of max F1 among top i
     cum_best_f1_sums = [0.0] * k
 
-    # Cumulative any-F1>0 counts (at least some lexical overlap)
+    # Cumulative any-F1>0 counts
     cum_any_f1_pos_counts = [0] * k
 
     # Score gap tracking when gold is within top-3
@@ -99,7 +101,7 @@ def compute_position_stats(
         if qid not in preds:
             continue
         candidates = preds[qid]
-        # candidates expected as list of dicts with a "text" field; be robust
+        # candidates expected as list of dicts with "text" field
         cand_texts = []
         cand_scores = []
         for c in candidates:
@@ -155,7 +157,7 @@ def compute_position_stats(
                 if top_n >= 3 and cand_scores[1] is not None and cand_scores[2] is not None:
                     diffs_2_3_when_gold_in_top3.append(cand_scores[1] - cand_scores[2])
 
-    # Convert to percentages
+    # convert to percentages
     pos_em_pct = [100.0 * c / total for c in pos_em_counts]
     cum_em_pct = [100.0 * c / total for c in cum_em_counts]
     cum_avg_best_f1_pct = [100.0 * (s / total) for s in cum_best_f1_sums]
@@ -197,7 +199,7 @@ def main():
 
     metrics = compute_position_stats(gold, preds)
 
-    # Pretty print concise view
+    # Print results
     total = metrics["total"]
     k = metrics["k"]
     print(f"Questions: {total}, k={k}")

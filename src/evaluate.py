@@ -37,11 +37,11 @@ def main():
                 result = qa({"context": context, "question": question})
                 predictions[qid] = result["answer"]
 
-    print(f"Generated {len(predictions)} predictions.")
+    print(f"Generated {len(predictions)} predictions")
     Path(args.out_file).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as f:
         json.dump(predictions, f, indent=2)
-    print(f"Saved predictions to {args.out_file}")
+    print(f"Saved to {args.out_file}")
 
 if __name__ == "__main__":
     main()

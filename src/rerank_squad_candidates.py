@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer, util, CrossEncoder
 
 
 def load_dev_qid_to_question(dev_path: str) -> Dict[str, str]:
-    """Build qid -> question text mapping from SQuAD v1.1 dev file."""
+    # Build qid -> question text mapping from SQuAD v1.1 dev file
     with open(dev_path, "r", encoding="utf-8") as f:
         js = json.load(f)
     qid2q = {}
@@ -19,28 +19,28 @@ def load_dev_qid_to_question(dev_path: str) -> Dict[str, str]:
 
 
 def load_nbest(nbest_path: str) -> Dict[str, List[dict]]:
-    """Load top-k candidates per qid: { qid: [ {text, score, start, end}, ... ] }"""
+    # Load top-k candidates per qid: { qid: [ {text, score, start, end}, ... ] }
     with open(nbest_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def dedup_and_filter_candidates(cands: List[dict], max_tokens: int = 30) -> List[dict]:
-    """Strip whitespace, drop empties, deduplicate by text, optionally drop very long spans."""
+    # Strip whitespace, drop empties, deduplicate by text, optionally drop very long spans
     seen = set()
     cleaned = []
     for c in cands:
         text = (c.get("text") or "").strip()
         if not text:
             continue
-        # Approx token count by simple whitespace split (good enough for cleanup)
+        # Approx token count by whitespace split
         if max_tokens is not None and len(text.split()) > max_tokens:
             continue
         if text in seen:
             # keep only higher-scoring duplicate
-            # if existing has lower score, replace it
             for i, cc in enumerate(cleaned):
                 if cc["text"] == text and float(c.get("score", 0.0)) > cc["score"]:
                     cleaned[i] = {"text": text, "score": float(c.get("score", 0.0))}
+                    break
             continue
         cleaned.append({"text": text, "score": float(c.get("score", 0.0))})
         seen.add(text)
@@ -48,13 +48,13 @@ def dedup_and_filter_candidates(cands: List[dict], max_tokens: int = 30) -> List
 
 
 def normalize_scores(scores: np.ndarray, mode: str = "minmax") -> np.ndarray:
-    """Normalize baseline candidate scores per question."""
+    # Normalize baseline candidate scores per question
     if scores.size == 0:
         return scores
     if mode == "none":
         return scores
     if mode == "softmax":
-        # temperature 1.0 softmax
+        # softmax normalization
         x = scores - scores.max()
         exps = np.exp(x)
         denom = exps.sum()
@@ -69,7 +69,6 @@ def normalize_scores(scores: np.ndarray, mode: str = "minmax") -> np.ndarray:
 def make_candidate_text(text: str, mode: str) -> str:
     if mode == "answer_is":
         return f"The answer is {text}"
-    # raw
     return text
 
 
@@ -84,11 +83,10 @@ def rerank_for_qid(
     cross_encoder: CrossEncoder = None,
     batch_size: int = 32,
 ) -> str:
-    """Return best candidate text after fusing baseline and semantic scores."""
+    # Return best candidate text after fusing baseline and semantic scores
     if not candidates:
         return ""
 
-    # Prepare texts
     q_text = question.strip()
     cand_texts = [make_candidate_text(c["text"], cand_text_mode) for c in candidates]
 
@@ -101,7 +99,7 @@ def rerank_for_qid(
         q_emb = bi_encoder.encode([q_text], convert_to_tensor=True, normalize_embeddings=True)
         cand_embs = bi_encoder.encode(cand_texts, convert_to_tensor=True, normalize_embeddings=True)
         sims = util.cos_sim(q_emb, cand_embs).cpu().numpy().reshape(-1)
-        aux_scores = (sims + 1.0) / 2.0  # map to [0,1]
+        aux_scores = (sims + 1.0) / 2.0  # map cosine similarity to [0,1]
         aux_scores = normalize_scores(aux_scores, mode=norm_mode)
     elif reranker_type == "cross_encoder":
         if cross_encoder is None:
@@ -113,8 +111,7 @@ def rerank_for_qid(
             if aux_scores.shape[1] == 1:
                 aux_scores = aux_scores[:, 0]
             else:
-                # Assume final column corresponds to "entailment" / most positive class
-                # Convert logits to probabilities via softmax for stability
+                # Assume final column is entailment class, convert logits to probs
                 logits = aux_scores
                 logits = logits - logits.max(axis=1, keepdims=True)
                 exp_logits = np.exp(logits)
@@ -145,23 +142,23 @@ def main():
     ap.add_argument("--batch_size", type=int, default=32, help="Batch size for encoder inference")
     args = ap.parse_args()
 
-    print("📚 Loading dev questions...")
+    print("Loading dev questions...")
     qid2q = load_dev_qid_to_question(args.dev_file)
-    print(f"  → Loaded {len(qid2q)} questions")
+    print(f"Loaded {len(qid2q)} questions")
 
-    print("📄 Loading n-best candidates...")
+    print("Loading n-best candidates...")
     qid2cands_all = load_nbest(args.nbest_file)
-    print(f"  → Loaded candidates for {len(qid2cands_all)} qids")
+    print(f"Loaded candidates for {len(qid2cands_all)} qids")
 
-    # Intersect qids for safety
+    # Only process qids that have both candidates and questions
     qids = [qid for qid in qid2cands_all.keys() if qid in qid2q]
 
     if args.reranker_type == "bi_encoder":
-        print("🧠 Loading bi-encoder model:", args.model_name)
+        print("Loading bi-encoder model:", args.model_name)
         bi_model = SentenceTransformer(args.model_name)
         cross_model = None
     else:
-        print("🧠 Loading cross-encoder model:", args.cross_model_name)
+        print("Loading cross-encoder model:", args.cross_model_name)
         bi_model = None
         cross_model = CrossEncoder(args.cross_model_name)
 
@@ -172,7 +169,7 @@ def main():
     for idx, qid in enumerate(qids, 1):
         question = qid2q[qid]
         cands_raw = qid2cands_all.get(qid, [])
-        # Clean, dedup, filter, cap top-k
+        # Clean and filter candidates
         cands = dedup_and_filter_candidates(cands_raw, max_tokens=args.max_answer_tokens)
         if args.cap_topk and len(cands) > args.cap_topk:
             cands = cands[: args.cap_topk]
@@ -196,18 +193,17 @@ def main():
 
         total_considered += len(cands)
         if idx % 1000 == 0:
-            print(f" … processed {idx}/{len(qids)} qids")
+            print(f"Processed {idx}/{len(qids)} qids")
 
     with open(args.out_file, "w", encoding="utf-8") as f:
         json.dump(outputs, f, ensure_ascii=False)
 
-    print("✅ Done")
-    print(f" QIDs processed: {len(qids)}")
-    print(f" Avg candidates considered per QID: {total_considered / max(len(qids),1):.2f}")
-    print(f" QIDs with no usable candidates: {empty_or_missing}")
-    print(f" Wrote: {args.out_file}")
-    print("\n👉 Score with:")
-    print(f"python evaluate-v2.0.py {args.dev_file} {args.out_file}")
+    print("Done")
+    print(f"Processed {len(qids)} QIDs")
+    print(f"Avg candidates per QID: {total_considered / max(len(qids),1):.2f}")
+    print(f"Empty/missing: {empty_or_missing}")
+    print(f"Output: {args.out_file}")
+    print(f"\nEvaluate with: python evaluate-v2.0.py {args.dev_file} {args.out_file}")
 
 
 if __name__ == "__main__":

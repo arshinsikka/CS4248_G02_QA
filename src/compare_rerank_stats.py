@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""
-Compare reranked predictions against original top-1 candidates.
-Outputs counts of how many questions changed, and among those changes how often
-we moved from incorrect→correct, correct→incorrect, etc.
-"""
+# Compare reranked predictions against original top-1 candidates
+# Outputs counts of how many questions changed, and among those changes how often
+# we moved from incorrect→correct, correct→incorrect, etc.
 import argparse
 import json
 import re
@@ -12,7 +10,7 @@ from typing import Dict, List
 
 
 def normalize_answer(s: str) -> str:
-    """Lower text and remove punctuation, articles and extra whitespace."""
+    # Lower text and remove punctuation, articles and extra whitespace
     def remove_articles(text):
         return re.sub(r"\b(a|an|the)\b", " ", text)
 
@@ -53,7 +51,7 @@ def load_nbest(path: str) -> Dict[str, List[dict]]:
 def load_predictions(path: str) -> Dict[str, str]:
     with open(path, "r", encoding="utf-8") as f:
         preds = json.load(f)
-    # Ensure str keys and str values
+    # make sure keys and values are strings
     return {str(k): (v if isinstance(v, str) else str(v)) for k, v in preds.items()}
 
 
@@ -70,17 +68,17 @@ def main():
     ap.add_argument("--out_file", default=None, help="Optional JSON file to write stats")
     args = ap.parse_args()
 
-    print("📚 Loading gold answers...")
+    print("Loading gold answers...")
     qid_to_gold = load_gold_answers(args.dev_file)
-    print(f"  → gold entries: {len(qid_to_gold)}")
+    print(f"Loaded {len(qid_to_gold)} gold entries")
 
-    print("📄 Loading top-k candidates...")
+    print("Loading top-k candidates...")
     qid_to_candidates = load_nbest(args.nbest_file)
-    print(f"  → nbest entries: {len(qid_to_candidates)}")
+    print(f"Loaded {len(qid_to_candidates)} nbest entries")
 
-    print("📄 Loading reranked predictions...")
+    print("Loading reranked predictions...")
     reranked = load_predictions(args.reranked_file)
-    print(f"  → reranked entries: {len(reranked)}")
+    print(f"Loaded {len(reranked)} reranked entries")
 
     counts = {
         "total": 0,
@@ -154,7 +152,7 @@ def main():
     if args.out_file:
         with open(args.out_file, "w", encoding="utf-8") as f:
             json.dump(counts, f, indent=2)
-        print(f"💾 Stats written to {args.out_file}")
+        print(f"Stats written to {args.out_file}")
 
 
 if __name__ == "__main__":

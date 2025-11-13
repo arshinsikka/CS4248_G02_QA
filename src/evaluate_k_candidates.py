@@ -38,6 +38,7 @@ def main():
                 question = qa_item["question"]
                 qid = qa_item["id"]
 
+                # handle different pipeline versions
                 try:
                     result = qa({"context": context, "question": question}, top_k=args.top_k)
                 except TypeError:
@@ -59,11 +60,11 @@ def main():
                 predictions[qid] = candidates[: args.top_k]
                 count += 1
 
-    print(f"Generated top-{args.top_k} predictions for {count} questions.")
+    print(f"Generated top-{args.top_k} predictions for {count} questions")
     Path(args.out_file).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out_file, "w") as f:
         json.dump(predictions, f, indent=2)
-    print(f"Saved predictions to {args.out_file}")
+    print(f"Saved to {args.out_file}")
 
 
 if __name__ == "__main__":

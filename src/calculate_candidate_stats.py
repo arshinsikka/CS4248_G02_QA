@@ -16,7 +16,7 @@ import numpy as np
 
 
 def normalize_answer(s):
-    """Lower text and remove punctuation, articles and extra whitespace."""
+    # Lower text and remove punctuation, articles and extra whitespace
     def remove_articles(text):
         regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
         return re.sub(regex, ' ', text)
@@ -31,7 +31,7 @@ def normalize_answer(s):
 
 
 def load_gold_answers(dev_path: str):
-    """Load qid -> list of normalized gold answer texts."""
+    # Load qid -> list of normalized gold answer texts
     with open(dev_path, "r", encoding="utf-8") as f:
         squad_dict = json.load(f)
     
@@ -50,7 +50,7 @@ def load_gold_answers(dev_path: str):
 
 
 def load_candidates(nbest_path: str):
-    """Load qid -> list of candidates with text and score."""
+    # Load qid -> list of candidates with text and score
     with open(nbest_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -79,13 +79,13 @@ def main():
     )
     args = parser.parse_args()
 
-    print("📚 Loading gold answers...")
+    print("Loading gold answers...")
     qid_to_gold = load_gold_answers(args.dev_file)
-    print(f"  → Loaded {len(qid_to_gold)} questions")
+    print(f"Loaded {len(qid_to_gold)} questions")
 
-    print("📄 Loading candidates...")
+    print("Loading candidates...")
     qid_to_candidates = load_candidates(args.nbest_file)
-    print(f"  → Loaded candidates for {len(qid_to_candidates)} qids")
+    print(f"Loaded candidates for {len(qid_to_candidates)} qids")
 
     # Statistics
     all_diffs_12 = []
@@ -147,7 +147,7 @@ def main():
         else:
             no_c3 += 1
 
-    # Calculate averages and percentiles
+    # helper to summarize stats
     def summarize(values):
         if not values:
             return {
@@ -196,8 +196,9 @@ def main():
     }
 
     print("\n" + "="*60)
-    print("📊 SCORE DIFFERENCE STATISTICS")
+    print("SCORE DIFFERENCE STATISTICS")
     print("="*60)
+    
     def print_stats(label, stats):
         print(f"{label}:")
         print(f"  • count   : {stats['count']}")
@@ -229,7 +230,7 @@ def main():
     if args.out_file:
         with open(args.out_file, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
-        print(f"\n💾 Results saved to: {args.out_file}")
+        print(f"\nResults saved to: {args.out_file}")
 
 
 if __name__ == "__main__":

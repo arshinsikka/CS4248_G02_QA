@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""
-Complete workflow script for SQuAD QA with margin-triggered reranking.
-
-This script automates the entire pipeline:
-1. Generate top-k candidate predictions
-2. Apply margin-triggered reranking
-3. Evaluate results
-
-Best default parameters (from hyperparameter search):
-- top_k: 2
-- alpha: 0.5
-- min_gap: 0.05
-- reranker_type: bi_encoder
-"""
+# Complete workflow script for SQuAD QA with margin-triggered reranking
+# This script automates the entire pipeline:
+# 1. Generate top-k candidate predictions
+# 2. Apply margin-triggered reranking
+# 3. Evaluate results
+#
+# Best default parameters (from hyperparameter search):
+# - top_k: 2
+# - alpha: 0.5
+# - min_gap: 0.05
+# - reranker_type: bi_encoder
 import argparse
 import json
 import shutil
@@ -37,16 +34,16 @@ DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 def check_and_download_model(model_path):
-    """Check if model exists, download from Google Drive if not."""
+    # Check if model exists, download from Google Drive if not
     model_dir = Path(model_path)
     
     # Check if model directory exists and has required files
     if model_dir.exists() and (model_dir / "config.json").exists():
-        print(f"✅ Model found at: {model_path}")
+        print(f"Model found at: {model_path}")
         return
     
     print(f"\n{'='*60}")
-    print("📥 Model not found. Downloading from Google Drive...")
+    print("Model not found. Downloading from Google Drive...")
     print(f"{'='*60}")
     
     # Create models directory if it doesn't exist
@@ -59,25 +56,24 @@ def check_and_download_model(model_path):
     print(f"Downloading model (4.5GB) to {zip_path}...")
     print("This may take several minutes depending on your connection.")
     
-    # Try using gdown first (more reliable)
-    # Note: gdown is installed dynamically if needed, so linter warnings are expected
+    # try using gdown first
     try:
         import gdown  # type: ignore
         gdown.download(MODEL_DRIVE_URL, str(zip_path), quiet=False)
     except ImportError:
-        print("\n⚠️  'gdown' not installed. Installing it now...")
+        print("\n'gdown' not installed. Installing it now...")
         subprocess.run([sys.executable, "-m", "pip", "install", "gdown", "-q"], check=True)
         import gdown  # type: ignore
         gdown.download(MODEL_DRIVE_URL, str(zip_path), quiet=False)
     except Exception as e:
-        print(f"\n❌ Error downloading with gdown: {e}")
-        print("\n📝 Alternative: Please download manually from:")
+        print(f"\nError downloading with gdown: {e}")
+        print("\nAlternative: Please download manually from:")
         print(f"   https://drive.google.com/file/d/{MODEL_DRIVE_ID}/view?usp=sharing")
         print(f"   Extract to: {model_dir}")
         sys.exit(1)
     
     # Extract the zip file
-    print(f"\n📦 Extracting model...")
+    print(f"\nExtracting model...")
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         # Get the root directory name from the zip
         zip_members = zip_ref.namelist()
@@ -114,25 +110,25 @@ def check_and_download_model(model_path):
     
     # Verify extraction
     if model_dir.exists() and (model_dir / "config.json").exists():
-        print(f"✅ Model downloaded and extracted successfully!")
-        print(f"   Location: {model_path}")
+        print(f"Model downloaded and extracted successfully!")
+        print(f"Location: {model_path}")
     else:
-        print(f"⚠️  Warning: Model extraction may have failed. Please verify: {model_path}")
+        print(f"Warning: Model extraction may have failed. Please verify: {model_path}")
 
 
 def run_command(cmd, description):
-    """Run a command and handle errors."""
+    # Run a command and handle errors
     print(f"\n{'='*60}")
-    print(f"📋 {description}")
+    print(f"{description}")
     print(f"{'='*60}")
     print(f"Running: {' '.join(cmd)}")
     print()
     
     result = subprocess.run(cmd, capture_output=False)
     if result.returncode != 0:
-        print(f"\n❌ Error: {description} failed with exit code {result.returncode}")
+        print(f"\nError: {description} failed with exit code {result.returncode}")
         sys.exit(1)
-    print(f"✅ {description} completed successfully")
+    print(f"{description} completed successfully")
     return result
 
 
@@ -214,7 +210,7 @@ Example usage:
         Path(dir_path).mkdir(parents=True, exist_ok=True)
     
     print("\n" + "="*60)
-    print("🚀 Starting Complete Workflow")
+    print("Starting Complete Workflow")
     print("="*60)
     
     # Check and download model if needed
@@ -243,9 +239,9 @@ Example usage:
         ]
         run_command(cmd, "Step 1: Generate top-k candidates")
     else:
-        print(f"\n⏭️  Skipping candidate generation (using existing file: {candidates_file})")
+        print(f"\nSkipping candidate generation (using existing file: {candidates_file})")
         if not Path(candidates_file).exists():
-            print(f"❌ Error: Candidate file not found: {candidates_file}")
+            print(f"Error: Candidate file not found: {candidates_file}")
             sys.exit(1)
     
     # Step 2: Apply margin-triggered reranking
@@ -281,22 +277,22 @@ Example usage:
     
     # Print summary
     print("\n" + "="*60)
-    print("✅ Workflow Complete!")
+    print("Workflow Complete!")
     print("="*60)
-    print(f"\n📊 Results saved to: {results_file}")
+    print(f"\nResults saved to: {results_file}")
     
-    # Try to read and display results
+    # try to read and show results
     try:
         with open(results_file, "r") as f:
             results = json.load(f)
-        print(f"\n📈 Final Metrics:")
-        print(f"  Exact Match (EM): {results.get('exact', 0):.2f}%")
-        print(f"  F1 Score: {results.get('f1', 0):.2f}%")
-        print(f"  Total questions: {results.get('total', 0)}")
+        print(f"\nFinal Metrics:")
+        print(f"  EM: {results.get('exact', 0):.2f}%")
+        print(f"  F1: {results.get('f1', 0):.2f}%")
+        print(f"  Total: {results.get('total', 0)}")
     except Exception as e:
-        print(f"\n⚠️  Could not read results file: {e}")
+        print(f"\nCouldn't read results: {e}")
     
-    print(f"\n📁 All output files:")
+    print(f"\nAll output files:")
     print(f"  Candidates: {candidates_file}")
     print(f"  Reranked: {reranked_file}")
     print(f"  Results: {results_file}")

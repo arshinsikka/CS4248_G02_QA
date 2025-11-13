@@ -13,6 +13,7 @@ from pathlib import Path
 
 
 def load_and_flatten_squad(path: str) -> Dataset:
+    # load squad data and flatten it
     with open(path, "r") as f:
         squad_dict = json.load(f)
 
@@ -33,12 +34,14 @@ def load_and_flatten_squad(path: str) -> Dataset:
 
 
 def build_tokenizer_and_model(model_name: str):
+    # load tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForQuestionAnswering.from_pretrained(model_name)
     return tokenizer, model
 
 
 def preprocess_function(examples, tokenizer):
+    # preprocess examples for training
     questions = [q.strip() for q in examples["question"]]
     inputs = tokenizer(
         questions,
@@ -123,14 +126,14 @@ def main():
     train_ds = load_and_flatten_squad(train_path)
     eval_ds = load_and_flatten_squad(dev_path)
     dataset = DatasetDict({"train": train_ds, "validation": eval_ds})
-    print(f"Train size: {len(dataset['train'])}, Eval size: {len(dataset['validation'])}")
+    print(f"Train: {len(dataset['train'])}, Eval: {len(dataset['validation'])}")
 
     tokenizer, model = build_tokenizer_and_model(args.model_name)
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
     model.to(device)
     print(f"Using device: {device}")
 
-    print("Tokenizing dataset...")
+    print("Tokenizing...")
     tokenized = dataset.map(lambda ex: preprocess_function(ex, tokenizer),
                             batched=True,
                             remove_columns=dataset["train"].column_names)
@@ -138,6 +141,7 @@ def main():
     train_tokenized = tokenized["train"] if args.max_train == -1 else tokenized["train"].select(range(min(args.max_train, len(tokenized["train"]))))
     eval_tokenized = tokenized["validation"] if args.max_eval == -1 else tokenized["validation"].select(range(min(args.max_eval, len(tokenized["validation"]))))
 
+    # check what precision to use
     supports_bf16 = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8
     use_fp16 = torch.cuda.is_available() and not supports_bf16
 
@@ -172,7 +176,7 @@ def main():
     print("Starting training...")
     trainer.train()
     trainer.save_model(output_dir)
-    print(f"Training complete. Model saved to: {output_dir}")
+    print(f"Done. Model saved to: {output_dir}")
 
 
 if __name__ == "__main__":
