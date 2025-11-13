@@ -8,14 +8,15 @@
 ### Candidate Files (Before Reranking)
 Located in `candidates/` subfolder:
 - `predictions_with_2_acc2.json` - Top-2 candidates per question (used for final reranking)
+- `predictions_with_3_acc2.json` - Top-3 candidates per question (for analysis)
 - `predictions_with_5_acc2.json` - Top-5 candidates per question (for analysis)
 
 These files contain multiple candidates per question with scores and positions.
 
 ### Reranked Predictions (After Reranking)
 Located in `reranked/` subfolder:
-- `predictions_top2_alpha05_gap005_bienc.json` - **Best bi-encoder reranked predictions** (final result, EM=84.40, F1=91.04)
-- `predictions_top2_alpha05_gap005_cross.json` - Best cross-encoder reranked predictions
+- `predictions_top2_alpha05_gap015_bienc.json` - **Best bi-encoder reranked predictions** (final result, EM=84.40, F1=91.04)
+- `predictions_top2_alpha05_gap015_cross.json` - Best cross-encoder reranked predictions
 - `predictions_top2_alpha05_gap02_bienc.json` - Alternative bi-encoder configuration
 - `predictions_top2_alpha05_gap02_cross.json` - Alternative cross-encoder configuration
 

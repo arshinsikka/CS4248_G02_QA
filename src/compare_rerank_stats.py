@@ -51,7 +51,6 @@ def load_nbest(path: str) -> Dict[str, List[dict]]:
 def load_predictions(path: str) -> Dict[str, str]:
     with open(path, "r", encoding="utf-8") as f:
         preds = json.load(f)
-    # make sure keys and values are strings
     return {str(k): (v if isinstance(v, str) else str(v)) for k, v in preds.items()}
 
 

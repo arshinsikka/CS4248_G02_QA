@@ -67,7 +67,7 @@
 [top5] α=0.60, gap<0.20 → exact= 83.77 f1= 90.74 changed=  555 (+125/-179) best_f1= 91.00 (top2, α=0.50, gap<0.05) [0.6s]
 [top5] α=0.60, gap<0.25 → exact= 83.72 f1= 90.72 changed=  584 (+129/-188) best_f1= 91.00 (top2, α=0.50, gap<0.05) [0.6s]
 
-💾 Plain table written to results/hparam_search_top2_3_5_cross.txt
+Plain table written to results/hparam_search_top2_3_5_cross.txt
 
 === SUMMARY TABLE (sorted by F1 desc) ===
 Label         Alpha  MinGap     Exact        F1   Changed

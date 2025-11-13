@@ -196,7 +196,9 @@ Example usage:
     
     # Generate output file names
     if args.output_prefix is None:
-        args.output_prefix = f"top{args.top_k}_alpha{args.alpha:.2f}_gap{args.min_gap:.3f}_{args.reranker_type}"
+        alpha_str = f"{int(args.alpha * 100):02d}"
+        gap_str = f"{int(args.min_gap * 1000):03d}"
+        args.output_prefix = f"top{args.top_k}_alpha{alpha_str}_gap{gap_str}_{args.reranker_type}"
     
     candidates_file = args.nbest_file
     if candidates_file is None:

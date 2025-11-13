@@ -5,10 +5,8 @@
 These files are needed to reproduce the main results:
 
 - `results_acc2_best_original.json` - Baseline RoBERTa results (EM=84.28, F1=90.93)
-- `best_results_top2_alpha05_gap005_bienc.json` - **Best bi-encoder reranked results** (EM=84.40, F1=91.04)
-- `results_top2_alpha05_gap005_cross.json` - Best cross-encoder reranked results
-- `results_top2_alpha05_gap02_bienc.json` - Alternative bi-encoder configuration
-- `results_top2_alpha05_gap02_cross.json` - Alternative cross-encoder configuration
+- `best_results_top2_alpha05_gap015_bienc.json` - **Best bi-encoder reranked results** (EM=84.40, F1=91.04)
+- `results_top2_alpha05_gap015_cross.json` - Best cross-encoder reranked results
 
 ## Analysis Files
 
@@ -29,9 +27,6 @@ These files are needed to reproduce the main results:
 
 These files contain grid search results across alpha (0.3-0.6) and min_gap (0.05-0.25) parameters for all three candidate set sizes.
 
-## Comparison Statistics
-
-- `rerank_change_stats.json` - Comparison of reranked vs. original predictions (change breakdown)
 
 ## Experimental Folder
 
